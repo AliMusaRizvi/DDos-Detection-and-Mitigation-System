@@ -77,6 +77,36 @@ export const dbApi = {
       .single();
     if (error) throw error;
     return data;
+  },
+
+  // Cases
+  async getCases() {
+    const { data, error } = await supabase
+      .from('attack_cases')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return data;
+  },
+
+  // Patterns
+  async getPatterns() {
+    const { data, error } = await supabase
+      .from('attack_patterns')
+      .select('*')
+      .order('detection_count', { ascending: false });
+    if (error) throw error;
+    return data;
+  },
+
+  // Reports
+  async getReports() {
+    const { data, error } = await supabase
+      .from('reports')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return data;
   }
 };
 
