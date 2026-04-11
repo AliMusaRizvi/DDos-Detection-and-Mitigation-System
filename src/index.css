@@ -1,0 +1,122 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  
+  --color-bg-base: #000000;
+  --color-bg-surface: #0A0A0A;
+  --color-bg-panel: #111111;
+  
+  --color-border-subtle: rgba(255, 255, 255, 0.08);
+  --color-border-strong: rgba(255, 255, 255, 0.15);
+  
+  --color-text-primary: #ededed;
+  --color-text-secondary: #888888;
+  --color-text-muted: #555555;
+  
+  --color-brand: #00E699;
+  --color-brand-dim: rgba(0, 230, 153, 0.1);
+  --color-danger: #FF4C4C;
+  --color-danger-dim: rgba(255, 76, 76, 0.1);
+  --color-warning: #F5A623;
+  --color-info: #3B82F6;
+}
+
+body {
+  background-color: var(--color-bg-base);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+/* 2026 UI Components */
+.glass-panel {
+  background: rgba(10, 10, 10, 0.6);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.bento-card {
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 16px;
+  transition: border-color 0.3s ease, transform 0.3s ease;
+}
+
+.bento-card:hover {
+  border-color: var(--color-border-strong);
+}
+
+.data-row {
+  display: grid;
+  border-bottom: 1px solid var(--color-border-subtle);
+  transition: background 0.2s ease;
+}
+
+.data-row:hover {
+  background: var(--color-bg-panel);
+}
+
+.pill-button {
+  border: 1px solid var(--color-border-strong);
+  border-radius: 9999px;
+  transition: all 0.2s ease;
+}
+
+.pill-button:hover {
+  background: var(--color-text-primary);
+  color: var(--color-bg-base);
+}
+
+.pill-button-brand {
+  background: var(--color-brand);
+  color: var(--color-bg-base);
+  border-radius: 9999px;
+  transition: all 0.2s ease;
+}
+
+.pill-button-brand:hover {
+  opacity: 0.9;
+  transform: scale(1.02);
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.status-dot.active {
+  background-color: var(--color-brand);
+  box-shadow: 0 0 10px var(--color-brand-dim);
+}
+
+/* Subtle grid background for hero sections */
+.bg-grid-subtle {
+  background-image: 
+    linear-gradient(to right, rgba(255,255,255,0.02) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255,255,255,0.02) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-bg-base);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-border-strong);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-muted);
+}
+
