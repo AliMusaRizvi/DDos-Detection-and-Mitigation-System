@@ -27,7 +27,10 @@ export default function Overview() {
   });
 
   useEffect(() => {
-    const socket = io();
+    const socketOrigin = import.meta.env.VITE_SOCKET_URL || window.location.origin;
+    const socket = io(socketOrigin, {
+      transports: ['websocket', 'polling']
+    });
 
     socket.on('metrics', (metrics) => {
       const formattedTraffic = metrics.traffic.map((item: any, i: number) => ({

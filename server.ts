@@ -1,10 +1,13 @@
 import express from 'express';
-import { createServer as createViteServer } from 'vite';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import path from 'path';
+import dotenv from 'dotenv';
 
-const PORT = 3000;
+dotenv.config();
+
+const PORT = process.env.PORT || 3000;
+const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || '*';
 
 // Mock Data State
 let trafficData = Array.from({ length: 40 }).map((_, i) => ({
@@ -23,9 +26,8 @@ let rules = [
 ];
 
 let alerts = [
-  { id: '1', time: new Date(Date.now() - 10000).toLocaleTimeString(), ip: '45.22.19.10', type: 'SYN_FLOOD', action: 'BLOCK_IP', tier: 'Tier 3', priority: 'High' },
-  { id: '2', time: new Date(Date.now() - 45000).toLocaleTimeString(), ip: '192.168.1.104', type: 'UDP_FLOOD', action: 'RATE_LIMIT', tier: 'Tier 1', priority: 'Low' },
-  { id: '3', time: new Date(Date.now() - 120000).toLocaleTimeString(), ip: '10.0.0.55', type: 'HTTP_GET', action: 'THROTTLE', tier: 'Tier 2', priority: 'Medium' },
+  { id: '1', time: new Date(Date.now() - 10000).toLocaleTimeString(), ip: '45.22.19.10', type: 'SYN_FLOOD', action: 'blocked', tier: 'Tier 3', priority: 'High' },
+  { id: '2', time: new Date(Date.now() - 45000).toLocaleTimeString(), ip: '192.168.1.104', type: 'UDP_FLOOD', action: 'rate_limit', tier: 'Tier 1', priority: 'Low' },
 ];
 
 let settings = {
@@ -39,16 +41,21 @@ let settings = {
 async function startServer() {
   const app = express();
   const httpServer = createServer(app);
+  
+  // Production CORS configuration
   const io = new Server(httpServer, {
-    cors: { origin: '*' }
+    cors: { 
+      origin: ALLOWED_ORIGIN,
+      methods: ["GET", "POST"]
+    }
   });
 
   app.use(express.json());
 
   // Background simulation loop
   setInterval(() => {
-    const isSpike = Math.random() > 0.9;
-    const newTraffic = isSpike ? Math.floor(Math.random() * 80) + 20 : Math.floor(Math.random() * 15) + 5;
+    const isSpike = Math.random() > 0.93;
+    const newTraffic = isSpike ? Math.floor(Math.random() * 80) + 30 : Math.floor(Math.random() * 15) + 8;
     
     trafficData.push({
       value: newTraffic,
@@ -56,13 +63,13 @@ async function startServer() {
     });
     if (trafficData.length > 40) trafficData.shift();
 
-    cpuLoad = isSpike ? Math.min(cpuLoad + Math.random() * 5, 25) : Math.max(cpuLoad - Math.random() * 2, 8);
-    ramUsage = isSpike ? Math.min(ramUsage + Math.random() * 50, 480) : Math.max(ramUsage - Math.random() * 10, 280);
+    cpuLoad = isSpike ? Math.min(cpuLoad + Math.random() * 8, 32) : Math.max(cpuLoad - Math.random() * 3, 11);
+    ramUsage = isSpike ? Math.min(ramUsage + Math.random() * 60, 520) : Math.max(ramUsage - Math.random() * 12, 310);
 
     if (isSpike && settings.autoMitigation) {
       isMitigating = true;
-      const types = ['SYN_FLOOD', 'UDP_FLOOD', 'HTTP_GET'];
-      const actions = ['BLOCK_IP', 'RATE_LIMIT', 'THROTTLE'];
+      const types = ['SYN_FLOOD', 'UDP_FLOOD', 'DNS_AMP'];
+      const actions = ['blocked', 'rate_limit', 'throttled'];
       const tiers = ['Tier 3', 'Tier 1', 'Tier 2'];
       const priorities = ['High', 'Low', 'Medium'];
       const idx = Math.floor(Math.random() * types.length);
@@ -83,7 +90,7 @@ async function startServer() {
       // Broadcast alert via WebSocket
       io.emit('new_alert', newAlert);
       
-      setTimeout(() => { isMitigating = false; }, 3000);
+      setTimeout(() => { isMitigating = false; }, 4000);
     }
 
     // Broadcast metrics via WebSocket
@@ -94,40 +101,38 @@ async function startServer() {
       isMitigating
     });
 
-    // Generate and broadcast packets
+    // Generate and broadcast packets + ML Detection Simulation
     const packets = Array.from({ length: 5 }).map((_, i) => {
-      const isAttack = Math.random() > 0.8;
-      const proto = isAttack ? 'UDP' : ['TCP', 'ICMP', 'TCP'][Math.floor(Math.random() * 3)];
+      const isActuallyAttack = Math.random() > 0.88;
+      const proto = isActuallyAttack ? 'UDP' : ['TCP', 'ICMP', 'TCP'][Math.floor(Math.random() * 3)];
+      
+      // Decision Layer: In a real system, this would be the ML inference result
+      // We simulate the 'Think' phase here
+      const decision = isActuallyAttack ? 'DROP' : 'ALLOW';
+      
       return {
         id: `pkt_${Math.floor(Math.random() * 100000)}`,
         time: new Date().toISOString().split('T')[1].slice(0, 12),
-        src: isAttack ? '45.22.19.10' : `192.168.1.${Math.floor(Math.random() * 255)}`,
+        src: isActuallyAttack ? '45.22.19.10' : `192.168.1.${Math.floor(Math.random() * 255)}`,
         dst: '10.0.0.1',
         proto,
-        size: isAttack ? '1024B' : `${Math.floor(Math.random() * 1400) + 64}B`,
+        size: isActuallyAttack ? '1024B' : `${Math.floor(Math.random() * 1400) + 64}B`,
         flag: proto === 'TCP' ? ['SYN', 'ACK', 'FIN'][Math.floor(Math.random() * 3)] : '-',
-        status: isAttack ? 'DROP' : 'ALLOW'
+        status: decision
       };
     });
     io.emit('new_packets', packets);
-  }, 1000);
+
+    // If any packet was DROPPED, ensure mitigation UI is active
+    if (packets.some(p => p.status === 'DROP')) {
+      isMitigating = true;
+      setTimeout(() => { isMitigating = false; }, 2000);
+    }
+  }, 2000);
 
   // API Routes
-  app.get('/api/health', (req, res) => {
-    res.json({ status: 'ok', version: '1.0.4-live' });
-  });
-
-  app.get('/api/health/detailed', (req, res) => {
-    res.json({
-      status: 'ok',
-      services: [
-        { name: 'Backend API', status: 'operational', latency: Math.floor(Math.random() * 20) + 5 },
-        { name: 'Database (SQLite)', status: 'operational', latency: Math.floor(Math.random() * 10) + 2 },
-        { name: 'ML Engine', status: 'operational', latency: Math.floor(Math.random() * 50) + 10 },
-        { name: 'Packet Capture', status: 'operational', latency: Math.floor(Math.random() * 5) + 1 }
-      ],
-      lastChecked: new Date().toISOString()
-    });
+  app.get('/health', (req, res) => {
+    res.json({ status: 'ok', time: new Date().toISOString() });
   });
 
   app.get('/api/metrics', (req, res) => {
@@ -143,55 +148,8 @@ async function startServer() {
     res.json(alerts);
   });
 
-  app.get('/api/packets', (req, res) => {
-    const packets = Array.from({ length: 15 }).map((_, i) => {
-      const isAttack = Math.random() > 0.8;
-      const proto = isAttack ? 'UDP' : ['TCP', 'ICMP', 'TCP'][Math.floor(Math.random() * 3)];
-      return {
-        id: `pkt_${Math.floor(Math.random() * 10000)}`,
-        time: new Date(Date.now() - i * 100).toISOString().split('T')[1].slice(0, 12),
-        src: isAttack ? '45.22.19.10' : `192.168.1.${Math.floor(Math.random() * 255)}`,
-        dst: '10.0.0.1',
-        proto,
-        size: isAttack ? '1024B' : `${Math.floor(Math.random() * 1400) + 64}B`,
-        flag: proto === 'TCP' ? ['SYN', 'ACK', 'FIN'][Math.floor(Math.random() * 3)] : '-',
-        status: isAttack ? 'DROP' : 'ALLOW'
-      };
-    });
-    res.json(packets);
-  });
-
-  app.get('/api/rules', (req, res) => {
-    res.json(rules);
-  });
-
-  app.post('/api/rules/:id/toggle', (req, res) => {
-    const rule = rules.find(r => r.id === req.params.id);
-    if (rule) {
-      rule.status = rule.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
-      res.json(rule);
-    } else {
-      res.status(404).json({ error: 'Rule not found' });
-    }
-  });
-
-  app.get('/api/settings', (req, res) => {
-    res.json(settings);
-  });
-
-  app.post('/api/settings', (req, res) => {
-    settings = { ...settings, ...req.body };
-    res.json(settings);
-  });
-
-  // Vite middleware for development
-  if (process.env.NODE_ENV !== 'production') {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: 'spa',
-    });
-    app.use(vite.middlewares);
-  } else {
+  // Serve static files in production if needed, or act as standalone
+  if (process.env.SERVE_FRONTEND === 'true') {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
     app.get('*', (req, res) => {
@@ -199,8 +157,9 @@ async function startServer() {
     });
   }
 
-  httpServer.listen(PORT, '0.0.0.0', () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+  httpServer.listen(PORT, () => {
+    console.log(`Backend Server running on port ${PORT}`);
+    console.log(`CORS allowed for: ${ALLOWED_ORIGIN}`);
   });
 }
 

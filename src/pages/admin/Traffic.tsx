@@ -21,7 +21,10 @@ export default function Traffic() {
   ]);
 
   useEffect(() => {
-    const socket = io();
+    const socketOrigin = import.meta.env.VITE_SOCKET_URL || window.location.origin;
+    const socket = io(socketOrigin, {
+      transports: ['websocket', 'polling']
+    });
 
     socket.on('new_packets', (newPackets) => {
       setPackets(prev => {
