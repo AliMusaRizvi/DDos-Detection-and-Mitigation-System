@@ -8,7 +8,7 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install dependencies (production only)
-RUN npm install --omit=dev && npm install -g tsx
+RUN npm install --omit=dev
 
 # Copy source code
 COPY . .
