@@ -20,7 +20,7 @@ export default function Layout() {
             <Link to="/contact" className={`transition-colors ${location.pathname === '/contact' ? 'text-text-primary' : 'text-text-secondary hover:text-text-primary'}`}>Contact</Link>
           </div>
           <Link to="/auth" className="pill-button px-5 py-2 text-sm font-medium">
-            Admin Login
+            Login
           </Link>
         </div>
       </nav>

@@ -131,6 +131,14 @@ async function startServer() {
   }, 2000);
 
   // API Routes
+  app.get('/', (req, res) => {
+    res.json({ 
+      message: 'DDoS Mitigation System Backend is Running.',
+      status: 'Live',
+      endpoints: ['/health', '/api/metrics', '/api/alerts']
+    });
+  });
+
   app.get('/health', (req, res) => {
     res.json({ status: 'ok', time: new Date().toISOString() });
   });

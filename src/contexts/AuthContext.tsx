@@ -65,9 +65,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       setProfile(data || null);
       
-      // If user has a profile, default to user unless expressly admin
+      // If user has a profile, map the Supabase roles to React roles
       if (data) {
-        setRole(data.role === 'admin' ? 'admin' : 'user');
+        const isAdmin = data.role === 'superadmin' || data.role === 'analyst' || data.role === 'admin';
+        setRole(isAdmin ? 'admin' : 'user');
       } else {
         setRole('user'); // Default fallback if profile missing
       }
