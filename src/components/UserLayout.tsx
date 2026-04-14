@@ -9,7 +9,6 @@ export default function UserLayout() {
 
   const handleSignOut = async () => {
     await signOut();
-    navigate('/auth');
   };
 
   const navItems = [
@@ -22,8 +21,10 @@ export default function UserLayout() {
       {/* Sidebar */}
       <aside className="w-64 bg-bg-surface border-r border-border-subtle flex flex-col hidden md:flex">
         <div className="h-16 flex items-center px-6 border-b border-border-subtle">
-          <Shield className="w-6 h-6 text-brand mr-2" />
-          <span className="text-lg font-semibold tracking-tight text-text-primary">SafeBrowse</span>
+          <Shield className="w-5 h-5 text-brand mr-2" />
+          <span className="text-lg font-semibold tracking-tight text-text-primary">
+            DDoS<span className="text-text-secondary">DEFEND</span>
+          </span>
         </div>
         
         <nav className="flex-1 py-6 px-4 space-y-1">

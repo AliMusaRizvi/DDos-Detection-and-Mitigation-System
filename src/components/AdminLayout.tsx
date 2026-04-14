@@ -11,8 +11,10 @@ export default function AdminLayout() {
   const { user, profile, signOut } = useAuth();
   
   useEffect(() => {
-    const socket = io();
-    
+    const socketOrigin = import.meta.env.VITE_SOCKET_URL || window.location.origin;
+    const socket = io(socketOrigin, {
+      transports: ['websocket', 'polling']
+    });
     socket.on('new_alert', (alert) => {
       toast.custom((t) => (
         <div className={`${t.visible ? 'animate-enter' : 'animate-leave'} max-w-md w-full bg-bg-panel border border-danger/30 shadow-lg rounded-lg pointer-events-auto flex ring-1 ring-black ring-opacity-5`}>
@@ -109,7 +111,6 @@ export default function AdminLayout() {
           <button
             onClick={async () => {
               await signOut();
-              navigate('/auth');
             }}
             className="w-full flex items-center justify-center gap-3 px-3 py-2 rounded-lg text-sm text-text-secondary hover:text-danger hover:bg-danger-dim transition-colors"
           >

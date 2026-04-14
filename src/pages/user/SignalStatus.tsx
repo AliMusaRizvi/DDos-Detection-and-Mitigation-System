@@ -8,7 +8,10 @@ export default function SignalStatus() {
   const [latency, setLatency] = useState(0);
 
   useEffect(() => {
-    const socket = io();
+    const socketOrigin = import.meta.env.VITE_SOCKET_URL || window.location.origin;
+    const socket = io(socketOrigin, {
+      transports: ['websocket', 'polling']
+    });
     const start = performance.now();
 
     socket.on('connect', () => {
