@@ -75,7 +75,7 @@ export default function UserDashboard() {
       <div className="bento-card p-6 mt-8">
         <h3 className="text-sm font-medium text-text-primary mb-4">Account Information</h3>
         <p className="text-text-secondary text-sm">
-          You are currently logged into the SafeBrowse user portal. Your access is restricted to personal monitoring and public status alerts. If you require mitigation controls or administrator privileges to modify active firewall rules, please contact your network administrator.
+          You are currently logged into the DDoS Mitigation user portal. Your access is restricted to personal monitoring and public status alerts. If you require mitigation controls or administrator privileges to modify active firewall rules, please contact your network administrator.
         </p>
       </div>
     </div>

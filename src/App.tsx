@@ -23,6 +23,7 @@ import Users from './pages/admin/Users';
 
 // User Pages
 import UserDashboard from './pages/user/UserDashboard';
+import SignalStatus from './pages/user/SignalStatus';
 
 export default function App() {
   return (
@@ -56,7 +57,7 @@ export default function App() {
           <Route path="/user" element={<ProtectedRoute requireRole="user" />}>
             <Route element={<UserLayout />}>
               <Route index element={<UserDashboard />} />
-              {/* Add future user routes here */}
+              <Route path="status" element={<SignalStatus />} />
             </Route>
           </Route>
         </Routes>
