@@ -19,6 +19,7 @@ import Alerts from './pages/admin/Alerts';
 import Cases from './pages/admin/Cases';
 import Patterns from './pages/admin/Patterns';
 import Reports from './pages/admin/Reports';
+import Users from './pages/admin/Users';
 
 // User Pages
 import UserDashboard from './pages/user/UserDashboard';
@@ -47,6 +48,7 @@ export default function App() {
               <Route path="cases" element={<Cases />} />
               <Route path="patterns" element={<Patterns />} />
               <Route path="reports" element={<Reports />} />
+              <Route path="users" element={<Users />} />
             </Route>
           </Route>
 

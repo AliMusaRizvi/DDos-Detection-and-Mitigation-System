@@ -52,7 +52,7 @@ export default function Settings() {
         const mlLatency = Math.round(performance.now() - startMl);
 
         const startDb = performance.now();
-        const { error } = await supabase.from('system_settings').select('id').limit(1);
+        const { error } = await supabase.from('ddos_system_settings').select('id').limit(1);
         const dbLatency = Math.round(performance.now() - startDb);
 
         setHealth({

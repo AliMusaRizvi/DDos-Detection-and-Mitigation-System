@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Activity, ShieldBan, Settings, LogOut, Shield, AlertTriangle, FileText, Database, Layers } from 'lucide-react';
+import { LayoutDashboard, Activity, ShieldBan, Settings, LogOut, Shield, AlertTriangle, FileText, Database, Layers, Users } from 'lucide-react';
 import { io } from 'socket.io-client';
 import toast, { Toaster } from 'react-hot-toast';
 import { useAuth } from '../contexts/AuthContext';
@@ -56,6 +56,7 @@ export default function AdminLayout() {
     { path: '/admin/patterns', icon: Database, label: 'Attack Patterns' },
     { path: '/admin/rules', icon: ShieldBan, label: 'Mitigation Rules' },
     { path: '/admin/reports', icon: FileText, label: 'Analysis Reports' },
+    { path: '/admin/users', icon: Users, label: 'User Management' },
     { path: '/admin/settings', icon: Settings, label: 'System Settings' },
   ];
 

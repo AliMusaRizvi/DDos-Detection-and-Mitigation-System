@@ -4,7 +4,7 @@ export const dbApi = {
   // Alerts
   async getAlerts() {
     const { data, error } = await supabase
-      .from('alerts')
+      .from('ddos_alerts')
       .select('*')
       .order('created_at', { ascending: false })
       .limit(50);
@@ -15,7 +15,7 @@ export const dbApi = {
   // Attack Logs
   async getLogs() {
     const { data, error } = await supabase
-      .from('attack_logs')
+      .from('ddos_attack_logs')
       .select('*')
       .order('created_at', { ascending: false })
       .limit(100);
@@ -25,7 +25,7 @@ export const dbApi = {
 
   // Target Settings
   async getSettings() {
-    const { data, error } = await supabase.from('system_settings').select('*');
+    const { data, error } = await supabase.from('ddos_system_settings').select('*');
     if (error) throw error;
     
     // Convert array of key-value pairs to object map
@@ -39,7 +39,7 @@ export const dbApi = {
   
   async updateSetting(key: string, value: string) {
     const { data, error } = await supabase
-      .from('system_settings')
+      .from('ddos_system_settings')
       .update({ value, updated_at: new Date().toISOString() })
       .eq('key', key)
       .select();
@@ -50,7 +50,7 @@ export const dbApi = {
   // Rules
   async getRules() {
     const { data, error } = await supabase
-      .from('mitigation_rules')
+      .from('ddos_mitigation_rules')
       .select('*')
       .order('tier', { ascending: true });
     if (error) throw error;
@@ -60,7 +60,7 @@ export const dbApi = {
   async toggleRule(id: string, currentStatus: string) {
     const newStatus = currentStatus === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
     const { data, error } = await supabase
-      .from('mitigation_rules')
+      .from('ddos_mitigation_rules')
       .update({ status: newStatus, updated_at: new Date().toISOString() })
       .eq('id', id)
       .select();
@@ -71,7 +71,7 @@ export const dbApi = {
   // Auth Profile
   async getProfile(userId: string) {
     const { data, error } = await supabase
-      .from('profiles')
+      .from('ddos_profiles')
       .select('*')
       .eq('id', userId)
       .single();
@@ -82,7 +82,7 @@ export const dbApi = {
   // Cases
   async getCases() {
     const { data, error } = await supabase
-      .from('attack_cases')
+      .from('ddos_attack_cases')
       .select('*')
       .order('created_at', { ascending: false });
     if (error) throw error;
@@ -92,7 +92,7 @@ export const dbApi = {
   // Patterns
   async getPatterns() {
     const { data, error } = await supabase
-      .from('attack_patterns')
+      .from('ddos_attack_patterns')
       .select('*')
       .order('detection_count', { ascending: false });
     if (error) throw error;
@@ -102,9 +102,29 @@ export const dbApi = {
   // Reports
   async getReports() {
     const { data, error } = await supabase
-      .from('reports')
+      .from('ddos_reports')
       .select('*')
       .order('created_at', { ascending: false });
+    if (error) throw error;
+    return data;
+  },
+
+  // User Management
+  async getUsers() {
+    const { data, error } = await supabase
+      .from('ddos_profiles')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return data;
+  },
+
+  async updateUserRole(id: string, newRole: string) {
+    const { data, error } = await supabase
+      .from('ddos_profiles')
+      .update({ role: newRole, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .select();
     if (error) throw error;
     return data;
   }
