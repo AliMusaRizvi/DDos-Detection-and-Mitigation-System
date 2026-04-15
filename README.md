@@ -57,6 +57,73 @@ We use **Vitest** and **React Testing Library** for component verification.
 npm run test
 ```
 
+## ✅ End-to-End Validation (Auth + Detection + Mitigation)
+
+Use this checklist to validate the full website behavior.
+
+### 1. Start All Services
+
+```bash
+# Terminal 1 (backend socket/API simulator)
+npm run dev
+
+# Terminal 2 (frontend)
+npx vite
+```
+
+Open the app in browser.
+
+### 2. Validate Sign Up + Login
+
+1. Go to `Auth` page.
+2. Switch to `Create Account` and register a new user.
+3. Confirm success message appears.
+4. Switch back to login and authenticate with the same credentials.
+5. Confirm protected routes open after login.
+
+Note: If Supabase Auth API is temporarily unavailable, the app falls back to local Supabase DB RPC login/sign-up paths (`ddos_local_auth_signup`, `ddos_local_auth_signin`).
+
+### 3. Validate Role Routing
+
+1. Login with admin account and confirm route resolves to `/admin`.
+2. Open `Home` and click `Live Dashboard` / `Initialize Dashboard`.
+3. Confirm flow goes through auth and lands in correct protected area.
+
+### 4. Validate Detection Pipeline UI
+
+1. Open `Admin -> Overview`.
+2. Confirm live traffic chart updates every few seconds.
+3. Confirm CPU/RAM/mitigation status values update in real-time.
+4. Confirm `Recent Mitigation Actions` updates as alerts arrive.
+
+### 5. Validate Mitigation Signals
+
+1. Open `Admin -> Traffic`.
+2. Confirm packet stream updates continuously (`ALLOW`/`DROP`).
+3. Confirm protocol distribution updates from live packets.
+4. During spikes, confirm mitigation indicators and alerting appear.
+
+### 6. Validate Supabase Tables
+
+Run SQL checks in Supabase SQL Editor:
+
+```sql
+select count(*) from public.ddos_local_auth_accounts;
+select count(*) from public.ddos_access_requests;
+select count(*) from public.ddos_alerts;
+select count(*) from public.ddos_attack_logs;
+select count(*) from public.ddos_mitigation_rules;
+```
+
+### 7. Regression Checks
+
+```bash
+npm run build
+npm run test
+```
+
+Both commands should pass before deployment.
+
 ## 📜 Objectives Completed (FYP)
 1. **Literature Review:** Extensively documented ML approaches against DDoS.
 2. **System Design:** Established modular Node.js/React architecture.

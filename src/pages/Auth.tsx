@@ -46,7 +46,6 @@ export default function Auth() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
-  const [requestMessage, setRequestMessage] = useState('');
   
   const navigate = useNavigate();
   const location = useLocation();
@@ -132,22 +131,43 @@ export default function Auth() {
     }
   };
 
-  const submitAccessRequestFallback = async () => {
-    const { error } = await withTimeout(
-      supabase.from('ddos_access_requests').insert([
-        {
-          full_name: fullName,
-          email: email.toLowerCase(),
-          requested_role: 'viewer',
-          message: requestMessage.trim() || 'Submitted from web request-access page',
-        },
-      ]),
-      AUTH_TIMEOUT_MS,
-      'Submit access request',
-    );
+  const tryLocalSignupFallback = async () => {
+    try {
+      const { data, error } = await withTimeout(
+        supabase.rpc('ddos_local_auth_signup', {
+          p_email: email,
+          p_password: password,
+          p_full_name: fullName,
+        }),
+        AUTH_TIMEOUT_MS,
+        'Local fallback sign up',
+      );
 
-    if (error) {
-      throw error;
+      if (error) {
+        const errorMessage = String(error.message ?? '');
+        if (/already exists/i.test(errorMessage)) {
+          toast.error('Account already exists. Please log in.');
+          setIsLogin(true);
+          return false;
+        }
+
+        toast.error(errorMessage || 'Failed to create account');
+        return false;
+      }
+
+      const rows = Array.isArray(data) ? (data as LocalAuthSigninRow[]) : [];
+      if (!rows[0]) {
+        toast.error('Sign up could not be completed. Please try again.');
+        return false;
+      }
+
+      toast.success('Sign up successful! You can now log in.');
+      setIsLogin(true);
+      setPassword('');
+      return true;
+    } catch (fallbackError: any) {
+      toast.error(fallbackError?.message || 'Failed to create account');
+      return false;
     }
   };
 
@@ -171,11 +191,27 @@ export default function Auth() {
         toast.success("Authentication successful");
         navigate(destination, { replace: true });
       } else {
-        await submitAccessRequestFallback();
-        toast.success('Access request submitted. Admin will review your request.');
+        const { error } = await withTimeout(
+          supabase.auth.signUp({
+            email,
+            password,
+            options: {
+              data: {
+                full_name: fullName,
+              }
+            }
+          }),
+          AUTH_TIMEOUT_MS,
+          'Sign up',
+        );
+
+        if (error) {
+          throw error;
+        }
+
+        toast.success('Sign up successful! You can now log in.');
         setIsLogin(true);
         setPassword('');
-        setRequestMessage('');
         return;
       }
     } catch (error: any) {
@@ -193,6 +229,15 @@ export default function Auth() {
         }
 
         toast.error('Authentication service is unavailable. Please verify credentials or try again later.');
+        return;
+      }
+
+      if (!isLogin && authEngineFailed) {
+        const signedUp = await tryLocalSignupFallback();
+        if (signedUp) {
+          return;
+        }
+
         return;
       }
 
@@ -220,7 +265,7 @@ export default function Auth() {
               <Lock className="w-5 h-5 text-text-primary" />
             </div>
             <h1 className="text-2xl font-semibold tracking-tight text-text-primary">
-              {isLogin ? 'Secure Authentication' : 'Request Access'}
+              {isLogin ? 'Secure Authentication' : 'Create Account'}
             </h1>
             <p className="text-text-secondary text-sm mt-2">
               Secure Portal v1.0
@@ -262,35 +307,22 @@ export default function Auth() {
               </div>
             </div>
 
-            {isLogin ? (
-              <div className="space-y-2">
-                <label className="text-xs font-medium text-text-secondary">Access Key</label>
-                <div className="relative">
-                  <Key className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
-                  <input 
-                    type="password" 
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="w-full bg-bg-base border border-border-subtle focus:border-border-strong rounded-lg text-text-primary pl-10 pr-4 py-2.5 outline-none text-sm transition-colors"
-                    placeholder="••••••••••••"
-                    disabled={isLoading}
-                  />
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <label className="text-xs font-medium text-text-secondary">Request Notes (Optional)</label>
-                <textarea
-                  value={requestMessage}
-                  onChange={(e) => setRequestMessage(e.target.value)}
-                  rows={3}
-                  className="w-full bg-bg-base border border-border-subtle focus:border-border-strong rounded-lg text-text-primary px-4 py-2.5 outline-none text-sm transition-colors resize-none"
-                  placeholder="Briefly explain your access need..."
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-text-secondary">{isLogin ? 'Access Key' : 'Create Access Key'}</label>
+              <div className="relative">
+                <Key className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
+                <input 
+                  type="password" 
+                  required
+                  minLength={8}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full bg-bg-base border border-border-subtle focus:border-border-strong rounded-lg text-text-primary pl-10 pr-4 py-2.5 outline-none text-sm transition-colors"
+                  placeholder={isLogin ? '••••••••••••' : 'Use at least 8 characters'}
                   disabled={isLoading}
                 />
               </div>
-            )}
+            </div>
 
             <button 
               type="submit"
@@ -301,7 +333,7 @@ export default function Auth() {
                 <Loader className="w-4 h-4 animate-spin" />
               ) : (
                 <>
-                  {isLogin ? 'Initialize Session' : 'Submit Request'}
+                  {isLogin ? 'Initialize Session' : 'Create Account'}
                   <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                 </>
               )}
@@ -314,7 +346,7 @@ export default function Auth() {
               disabled={isLoading}
               className="text-text-secondary hover:text-text-primary text-sm transition-colors disabled:opacity-50"
             >
-              {isLogin ? 'Need access? Request credentials' : 'Have credentials? Authenticate here'}
+              {isLogin ? 'Need an account? Create one here' : 'Already registered? Authenticate here'}
             </button>
           </div>
         </div>
