@@ -103,6 +103,20 @@ Note: If Supabase Auth API is temporarily unavailable, the app falls back to loc
 3. Confirm protocol distribution updates from live packets.
 4. During spikes, confirm mitigation indicators and alerting appear.
 
+### 5.1 Admin Browser Tabs -> Database Tables
+
+Each admin browser tab is wired to dedicated Supabase table(s):
+
+1. Overview -> `ddos_attack_logs`, `ddos_alerts`, `ddos_attack_cases`, `ddos_mitigation_rules`
+2. Traffic Analysis -> `ddos_attack_logs`
+3. Security Alerts -> `ddos_alerts`
+4. Mitigation Rules -> `ddos_mitigation_rules`
+5. System Settings -> `ddos_system_settings`
+6. Incident Cases -> `ddos_attack_cases`
+7. Attack Patterns -> `ddos_attack_patterns`
+8. Analysis Reports -> `ddos_reports` (generated using `ddos_alerts`, `ddos_attack_logs`, `ddos_attack_cases`, `ddos_mitigation_rules`)
+9. User Management -> `ddos_profiles` (plus fallback visibility via `ddos_local_auth_accounts`)
+
 ### 6. Validate Supabase Tables
 
 Run SQL checks in Supabase SQL Editor:

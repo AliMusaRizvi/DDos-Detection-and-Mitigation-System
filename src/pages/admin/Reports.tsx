@@ -1,10 +1,25 @@
 import React, { useEffect, useState } from 'react';
 import { dbApi } from '../../lib/api';
 import { FileText, Download, Calendar, Loader } from 'lucide-react';
+import { useAuth } from '../../contexts/AuthContext';
+import toast from 'react-hot-toast';
+
+const isUuid = (value?: string | null) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value ?? ''));
+
+const toUiError = (error: any, fallbackMessage: string) => {
+  const message = String(error?.message ?? fallbackMessage);
+  if (/row-level security policy/i.test(message)) {
+    return 'Permission denied by Supabase RLS. Sign in with an authenticated admin account to generate reports.';
+  }
+
+  return message;
+};
 
 export default function Reports() {
   const [reports, setReports] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const { user } = useAuth();
 
   useEffect(() => {
     const loadReports = async () => {
@@ -20,6 +35,47 @@ export default function Reports() {
     loadReports();
   }, []);
 
+  const handleGenerateReport = async () => {
+    setIsGenerating(true);
+    try {
+      const generatedBy = isUuid(user?.id) ? user?.id : undefined;
+      const report = await dbApi.generateReport({ reportType: 'daily', generatedBy });
+      setReports(prev => [report, ...prev]);
+      toast.success('Analysis report generated successfully');
+    } catch (error: any) {
+      toast.error(toUiError(error, 'Failed to generate report'));
+      console.error('Report generation failed:', error);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleDownloadReport = (report: any) => {
+    if (report.status !== 'ready') {
+      return;
+    }
+
+    const payload = [
+      `Title: ${report.title}`,
+      `Type: ${report.report_type}`,
+      `Status: ${report.status}`,
+      `Window: ${new Date(report.date_from).toLocaleString()} to ${new Date(report.date_to).toLocaleString()}`,
+      '',
+      'Summary:',
+      report.summary,
+    ].join('\n');
+
+    const blob = new Blob([payload], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `${String(report.title ?? 'analysis-report').replace(/[^a-z0-9-]+/gi, '_').toLowerCase()}.txt`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
+  };
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'ready': return <span className="px-2.5 py-1 text-xs font-medium rounded-full border bg-green-500/20 text-green-500 border-green-500/30">Ready</span>;
@@ -34,11 +90,15 @@ export default function Reports() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-text-primary tracking-tight">Security Reports</h1>
-          <p className="text-text-secondary mt-1">Generate and view automated threat assessments</p>
+          <p className="text-text-secondary mt-1">Generate and view automated threat assessments from ddos_alerts, ddos_attack_logs, ddos_attack_cases, and ddos_mitigation_rules.</p>
         </div>
-        <button className="flex items-center px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-xl transition-all font-medium text-sm">
-          <FileText className="w-4 h-4 mr-2" />
-          Generate New Report
+        <button
+          onClick={handleGenerateReport}
+          disabled={isGenerating}
+          className="flex items-center px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-xl transition-all font-medium text-sm disabled:opacity-50"
+        >
+          {isGenerating ? <Loader className="w-4 h-4 mr-2 animate-spin" /> : <FileText className="w-4 h-4 mr-2" />}
+          {isGenerating ? 'Generating...' : 'Generate New Report'}
         </button>
       </div>
 
@@ -80,10 +140,11 @@ export default function Reports() {
               <div className="flex md:flex-col items-center gap-2 border-t md:border-t-0 md:border-l border-white/5 pt-4 md:pt-0 md:pl-6">
                 <button 
                   disabled={r.status !== 'ready'} 
+                  onClick={() => handleDownloadReport(r)}
                   className="w-full flex items-center justify-center px-4 py-2 bg-background-light hover:bg-white/5 disabled:opacity-50 disabled:cursor-not-allowed text-text-primary rounded-xl transition-all border border-white/5"
                 >
                   <Download className="w-4 h-4 mr-2" />
-                  Download PDF
+                  Download Report
                 </button>
               </div>
             </div>

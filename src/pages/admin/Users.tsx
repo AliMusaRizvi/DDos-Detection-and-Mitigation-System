@@ -3,6 +3,15 @@ import { Users as UsersIcon, Search, Shield, Loader, Activity } from 'lucide-rea
 import { dbApi } from '../../lib/api';
 import toast from 'react-hot-toast';
 
+const toUiError = (error: any, fallbackMessage: string) => {
+  const message = String(error?.message ?? fallbackMessage);
+  if (/row-level security policy/i.test(message)) {
+    return 'Permission denied by Supabase RLS. Sign in with an authenticated admin account to update roles.';
+  }
+
+  return message;
+};
+
 export default function Users() {
   const [users, setUsers] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -24,18 +33,22 @@ export default function Users() {
   };
 
   const handleRoleChange = async (userId: string, newRole: string) => {
+    const originalUsers = [...users];
+    setUsers(prev => prev.map(user => user.id === userId ? { ...user, role: newRole } : user));
+
     try {
       await dbApi.updateUserRole(userId, newRole);
       toast.success('User role updated successfully');
-      setUsers(users.map(u => u.id === userId ? { ...u, role: newRole } : u));
-    } catch (error) {
-      toast.error('Failed to update role');
+    } catch (error: any) {
+      setUsers(originalUsers);
+      toast.error(toUiError(error, 'Failed to update role'));
     }
   };
 
   const filteredUsers = users.filter(u => 
-    u.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    u.id.toLowerCase().includes(searchQuery.toLowerCase())
+    String(u.full_name ?? '').toLowerCase().includes(searchQuery.toLowerCase())
+    || String(u.email ?? '').toLowerCase().includes(searchQuery.toLowerCase())
+    || String(u.id ?? '').toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
@@ -94,8 +107,11 @@ export default function Users() {
                           <div className="text-sm font-medium text-text-primary">
                             {user.full_name || 'Unnamed User'}
                           </div>
-                          <div className="text-xs text-text-secondary font-mono mt-0.5" title={user.id}>
-                            ID: {user.id.substring(0, 8)}...
+                          <div className="text-xs text-text-secondary font-mono mt-0.5">
+                            {user.email || `ID: ${String(user.id ?? '').substring(0, 8)}...`}
+                          </div>
+                          <div className="text-[10px] text-text-muted font-mono mt-0.5" title={user.id}>
+                            Source: {user.source === 'local-auth' ? 'Local Fallback Auth' : 'Supabase Profile'}
                           </div>
                         </div>
                       </div>
@@ -114,8 +130,10 @@ export default function Users() {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
-                        <div className="status-dot active"></div>
-                        <span className="text-sm text-text-secondary font-mono">Verified</span>
+                        <div className={`status-dot ${user.is_active === false ? 'inactive' : 'active'}`}></div>
+                        <span className="text-sm text-text-secondary font-mono">
+                          {user.is_active === false ? 'Inactive' : 'Active'}
+                        </span>
                       </div>
                     </td>
                     <td className="px-6 py-4">

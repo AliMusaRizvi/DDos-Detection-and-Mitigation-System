@@ -40,6 +40,8 @@ type LocalAuthSigninRow = {
   full_name: string;
 };
 
+type LocalSignupResult = 'created' | 'existing' | 'failed';
+
 export default function Auth() {
   const [isLogin, setIsLogin] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
@@ -131,7 +133,7 @@ export default function Auth() {
     }
   };
 
-  const tryLocalSignupFallback = async () => {
+  const tryLocalSignupFallback = async (silent = false): Promise<LocalSignupResult> => {
     try {
       const { data, error } = await withTimeout(
         supabase.rpc('ddos_local_auth_signup', {
@@ -146,28 +148,38 @@ export default function Auth() {
       if (error) {
         const errorMessage = String(error.message ?? '');
         if (/already exists/i.test(errorMessage)) {
-          toast.error('Account already exists. Please log in.');
           setIsLogin(true);
-          return false;
+          if (!silent) {
+            toast.error('Account already exists. Please log in.');
+          }
+          return 'existing';
         }
 
-        toast.error(errorMessage || 'Failed to create account');
-        return false;
+        if (!silent) {
+          toast.error(errorMessage || 'Failed to create account');
+        }
+        return 'failed';
       }
 
       const rows = Array.isArray(data) ? (data as LocalAuthSigninRow[]) : [];
       if (!rows[0]) {
-        toast.error('Sign up could not be completed. Please try again.');
-        return false;
+        if (!silent) {
+          toast.error('Sign up could not be completed. Please try again.');
+        }
+        return 'failed';
       }
 
-      toast.success('Sign up successful! You can now log in.');
       setIsLogin(true);
       setPassword('');
-      return true;
+      if (!silent) {
+        toast.success('Sign up successful! You can now log in.');
+      }
+      return 'created';
     } catch (fallbackError: any) {
-      toast.error(fallbackError?.message || 'Failed to create account');
-      return false;
+      if (!silent) {
+        toast.error(fallbackError?.message || 'Failed to create account');
+      }
+      return 'failed';
     }
   };
 
@@ -191,6 +203,37 @@ export default function Auth() {
         toast.success("Authentication successful");
         navigate(destination, { replace: true });
       } else {
+        const localSignupResult = await tryLocalSignupFallback(true);
+
+        if (localSignupResult === 'created') {
+          // Keep native auth in sync when available, but do not block the local path.
+          try {
+            await withTimeout(
+              supabase.auth.signUp({
+                email,
+                password,
+                options: {
+                  data: {
+                    full_name: fullName,
+                  }
+                }
+              }),
+              AUTH_TIMEOUT_MS,
+              'Native sign up mirror',
+            );
+          } catch (mirrorError) {
+            console.warn('Native sign up mirror failed:', mirrorError);
+          }
+
+          toast.success('Sign up successful! You can now log in.');
+          return;
+        }
+
+        if (localSignupResult === 'existing') {
+          toast.error('Account already exists. Please log in.');
+          return;
+        }
+
         const { error } = await withTimeout(
           supabase.auth.signUp({
             email,
@@ -234,7 +277,7 @@ export default function Auth() {
 
       if (!isLogin && authEngineFailed) {
         const signedUp = await tryLocalSignupFallback();
-        if (signedUp) {
+        if (signedUp !== 'failed') {
           return;
         }
 
