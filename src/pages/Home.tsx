@@ -88,7 +88,8 @@ export default function Home() {
             
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <Link 
-                to="/admin" 
+                to="/auth"
+                state={{ from: { pathname: '/admin' } }}
                 className="relative group px-8 py-4 text-base font-medium w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-brand text-bg-base rounded-full overflow-hidden transition-all hover:scale-105"
               >
                 <span className="absolute inset-0 w-full h-full bg-brand rounded-full animate-ping opacity-20"></span>
@@ -301,7 +302,7 @@ export default function Home() {
           <p className="text-lg text-text-secondary mb-12 max-w-2xl mx-auto">
             Access the live dashboard to monitor current network traffic, view ML classification confidence scores, and manage active mitigation rules.
           </p>
-          <Link to="/admin" className="relative group pill-button-brand px-10 py-5 text-lg font-medium inline-flex items-center gap-3 overflow-hidden">
+          <Link to="/auth" state={{ from: { pathname: '/admin' } }} className="relative group pill-button-brand px-10 py-5 text-lg font-medium inline-flex items-center gap-3 overflow-hidden">
             <span className="absolute inset-0 w-full h-full bg-brand rounded-full animate-ping opacity-20"></span>
             <span className="relative z-10 flex items-center gap-3">
               <Terminal className="w-5 h-5" />

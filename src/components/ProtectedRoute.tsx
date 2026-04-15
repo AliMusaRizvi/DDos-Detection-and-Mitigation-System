@@ -7,7 +7,7 @@ export default function ProtectedRoute({ requireRole }: { requireRole?: 'admin' 
   const { user, role, isLoading } = useAuth();
   const location = useLocation();
 
-  if (isLoading) {
+  if (isLoading || (user && requireRole && !role)) {
     return (
       <div className="min-h-screen bg-bg-base flex items-center justify-center">
         <Loader className="w-8 h-8 text-brand animate-spin" />
@@ -21,7 +21,7 @@ export default function ProtectedRoute({ requireRole }: { requireRole?: 'admin' 
   }
 
   // Handle role-specific access protection
-  if (requireRole && role && role !== requireRole) {
+  if (requireRole && role !== requireRole) {
     if (role === 'admin') {
       return <Navigate to="/admin" replace />;
     } else {

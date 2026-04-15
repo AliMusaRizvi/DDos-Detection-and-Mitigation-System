@@ -58,7 +58,7 @@ export const dbApi = {
   },
 
   async toggleRule(id: string, currentStatus: string) {
-    const newStatus = currentStatus === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
+    const newStatus = String(currentStatus).toUpperCase() === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
     const { data, error } = await supabase
       .from('ddos_mitigation_rules')
       .update({ status: newStatus, updated_at: new Date().toISOString() })

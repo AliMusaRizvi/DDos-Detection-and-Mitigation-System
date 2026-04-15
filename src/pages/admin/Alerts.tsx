@@ -11,7 +11,10 @@ export default function Alerts() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const socket = io();
+    const socketOrigin = import.meta.env.VITE_SOCKET_URL || window.location.origin;
+    const socket = io(socketOrigin, {
+      transports: ['websocket', 'polling']
+    });
 
     socket.on('new_alert', (alert) => {
       setAlerts(prev => [alert, ...prev].slice(0, 100)); // Keep last 100 alerts live
@@ -26,7 +29,7 @@ export default function Alerts() {
           time: new Date(item.created_at).toLocaleTimeString(),
           ip: item.source_ip,
           type: item.attack_type,
-          priority: item.priority === 'high' ? 'High' : item.priority === 'medium' ? 'Medium' : 'Low',
+          priority: String(item.priority).toLowerCase() === 'high' ? 'High' : String(item.priority).toLowerCase() === 'medium' ? 'Medium' : 'Low',
           tier: item.mitigation_tier,
           action: item.action_taken,
           status: item.status
@@ -49,7 +52,9 @@ export default function Alerts() {
 
   const filteredAlerts = alerts.filter(alert => {
     const matchesFilter = filter === 'ALL' || alert.priority === filter;
-    const matchesSearch = alert.ip.includes(searchQuery) || alert.type.toLowerCase().includes(searchQuery.toLowerCase());
+    const ip = String(alert.ip ?? '');
+    const type = String(alert.type ?? '').toLowerCase();
+    const matchesSearch = ip.includes(searchQuery) || type.includes(searchQuery.toLowerCase());
     return matchesFilter && matchesSearch;
   });
 

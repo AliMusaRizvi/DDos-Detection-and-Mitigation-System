@@ -33,15 +33,20 @@ export default function Overview() {
     });
 
     socket.on('metrics', (metrics) => {
-      const formattedTraffic = metrics.traffic.map((item: any, i: number) => ({
+      const rawTraffic = Array.isArray(metrics?.traffic) ? metrics.traffic : [];
+      const formattedTraffic = rawTraffic.map((item: any, i: number) => ({
         time: i.toString(),
         value: item.value,
         timestamp: new Date(item.timestamp).toLocaleTimeString()
       }));
-      setTraffic(formattedTraffic);
-      setCpu(metrics.cpu);
-      setRam(metrics.ram);
-      setIsMitigating(metrics.isMitigating);
+
+      if (formattedTraffic.length > 0) {
+        setTraffic(formattedTraffic);
+      }
+
+      setCpu(typeof metrics?.cpu === 'number' ? metrics.cpu : 0);
+      setRam(typeof metrics?.ram === 'number' ? metrics.ram : 0);
+      setIsMitigating(Boolean(metrics?.isMitigating));
     });
 
     socket.on('new_alert', (alert) => {
@@ -52,7 +57,8 @@ export default function Overview() {
       try {
         // Fetch alerts
         const alertsData = await dbApi.getAlerts();
-        const mappedAlerts = alertsData.slice(0, 5).map((item: any) => ({
+        const safeAlerts = Array.isArray(alertsData) ? alertsData : [];
+        const mappedAlerts = safeAlerts.slice(0, 5).map((item: any) => ({
           id: item.id,
           time: new Date(item.created_at).toLocaleTimeString(),
           ip: item.source_ip,
@@ -64,23 +70,32 @@ export default function Overview() {
         setAlerts(mappedAlerts);
 
         // Fetch DB Stats
-        const [
-          { count: packetsCount },
-          { count: blockedCount },
-          { count: casesCount },
-          { count: rulesCount }
-        ] = await Promise.all([
-          supabase.from('attack_logs').select('*', { count: 'exact', head: true }),
-          supabase.from('alerts').select('*', { count: 'exact', head: true }).eq('action_taken', 'blocked'),
-          supabase.from('attack_cases').select('*', { count: 'exact', head: true }).eq('status', 'open'),
-          supabase.from('mitigation_rules').select('*', { count: 'exact', head: true }).eq('status', 'ACTIVE')
+        const [packetsRes, blockedRes, casesRes, rulesRes] = await Promise.all([
+          supabase.from('ddos_attack_logs').select('*', { count: 'exact', head: true }),
+          supabase.from('ddos_alerts').select('*', { count: 'exact', head: true }).eq('action_taken', 'blocked'),
+          supabase.from('ddos_attack_cases').select('*', { count: 'exact', head: true }).eq('status', 'open'),
+          supabase.from('ddos_mitigation_rules').select('*', { count: 'exact', head: true }).eq('status', 'ACTIVE')
         ]);
 
+        if (packetsRes.error || blockedRes.error || casesRes.error || rulesRes.error) {
+          console.error('Failed to fetch one or more overview stats', {
+            packets: packetsRes.error,
+            blocked: blockedRes.error,
+            cases: casesRes.error,
+            rules: rulesRes.error,
+          });
+        }
+
+        const packetsCount = packetsRes.count ?? 0;
+        const blockedCount = blockedRes.count ?? 0;
+        const casesCount = casesRes.count ?? 0;
+        const rulesCount = rulesRes.count ?? 0;
+
         setStats({
-          totalPackets: packetsCount ? packetsCount.toLocaleString() : '0',
-          blockedThreats: blockedCount ? blockedCount.toLocaleString() : '0',
-          activeCases: casesCount ? casesCount.toString() : '0',
-          activeRules: rulesCount ? rulesCount.toString() : '0'
+          totalPackets: packetsCount.toLocaleString(),
+          blockedThreats: blockedCount.toLocaleString(),
+          activeCases: casesCount.toString(),
+          activeRules: rulesCount.toString()
         });
 
         // Check ML API Health

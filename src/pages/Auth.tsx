@@ -1,9 +1,44 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import { Lock, User, Key, ArrowRight, Loader } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { toast } from 'react-hot-toast';
+import { useAuth } from '../contexts/AuthContext';
+
+const adminRoles = new Set(['superadmin', 'admin', 'analyst']);
+const AUTH_TIMEOUT_MS = 10000;
+
+const withTimeout = async <T,>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> => {
+  let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
+
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((_, reject) => {
+        timeoutHandle = setTimeout(() => {
+          reject(new Error(`${label} timed out after ${timeoutMs}ms`));
+        }, timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timeoutHandle) {
+      clearTimeout(timeoutHandle);
+    }
+  }
+};
+
+const getRoleRoute = (role?: string | null) => {
+  const normalizedRole = String(role ?? '').trim().toLowerCase();
+  return adminRoles.has(normalizedRole) ? '/admin' : '/user';
+};
+
+type LocalAuthSigninRow = {
+  account_id: string;
+  email: string;
+  role: string;
+  full_name: string;
+};
 
 export default function Auth() {
   const [isLogin, setIsLogin] = useState(true);
@@ -11,10 +46,110 @@ export default function Auth() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
+  const [requestMessage, setRequestMessage] = useState('');
   
   const navigate = useNavigate();
   const location = useLocation();
-  const from = location.state?.from?.pathname || "/admin";
+  const { user, role, isLoading: isAuthLoading, activateEmergencySession } = useAuth();
+  const fromPath: string | undefined = location.state?.from?.pathname;
+
+  useEffect(() => {
+    if (isAuthLoading || !user) {
+      return;
+    }
+
+    const fallbackRoute = role === 'admin' ? '/admin' : '/user';
+    const redirectPath = fromPath && fromPath !== '/auth' ? fromPath : fallbackRoute;
+    navigate(redirectPath, { replace: true });
+  }, [isAuthLoading, user, role, fromPath, navigate]);
+
+  const resolveLoginDestination = async (userId?: string) => {
+    if (fromPath && fromPath !== '/auth') {
+      return fromPath;
+    }
+
+    if (!userId) {
+      return '/user';
+    }
+
+    try {
+      const { data, error } = await withTimeout(
+        supabase
+          .from('ddos_profiles')
+          .select('role')
+          .eq('id', userId)
+          .maybeSingle(),
+        AUTH_TIMEOUT_MS,
+        'Role lookup',
+      );
+
+      if (error && error.code !== 'PGRST116') {
+        console.error('Failed to resolve destination role:', error);
+      }
+
+      return getRoleRoute(data?.role);
+    } catch (error) {
+      console.error('Failed to resolve login destination:', error);
+      return '/user';
+    }
+  };
+
+  const tryLocalSigninFallback = async () => {
+    try {
+      const { data, error } = await withTimeout(
+        supabase.rpc('ddos_local_auth_signin', {
+          p_email: email,
+          p_password: password,
+        }),
+        AUTH_TIMEOUT_MS,
+        'Local fallback sign in',
+      );
+
+      if (error) {
+        console.error('Local fallback sign-in failed:', error);
+        return false;
+      }
+
+      const rows = Array.isArray(data) ? (data as LocalAuthSigninRow[]) : [];
+      const localUser = rows[0];
+      if (!localUser) {
+        return false;
+      }
+
+      const destination = getRoleRoute(localUser.role);
+      const appRole = destination === '/admin' ? 'admin' : 'user';
+      activateEmergencySession({
+        email: localUser.email,
+        role: appRole,
+        full_name: localUser.full_name || 'System User',
+      });
+      toast.success('Local Supabase fallback login successful');
+      navigate(destination, { replace: true });
+      return true;
+    } catch (fallbackError) {
+      console.error('Local fallback sign-in threw an error:', fallbackError);
+      return false;
+    }
+  };
+
+  const submitAccessRequestFallback = async () => {
+    const { error } = await withTimeout(
+      supabase.from('ddos_access_requests').insert([
+        {
+          full_name: fullName,
+          email: email.toLowerCase(),
+          requested_role: 'viewer',
+          message: requestMessage.trim() || 'Submitted from web request-access page',
+        },
+      ]),
+      AUTH_TIMEOUT_MS,
+      'Submit access request',
+    );
+
+    if (error) {
+      throw error;
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -22,28 +157,45 @@ export default function Auth() {
 
     try {
       if (isLogin) {
-        const { error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
+        const { data, error } = await withTimeout(
+          supabase.auth.signInWithPassword({
+            email,
+            password,
+          }),
+          AUTH_TIMEOUT_MS,
+          'Sign in',
+        );
         if (error) throw error;
+
+        const destination = await resolveLoginDestination(data.user?.id);
         toast.success("Authentication successful");
-        navigate(from, { replace: true });
+        navigate(destination, { replace: true });
       } else {
-        const { data, error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: {
-              full_name: fullName,
-            }
-          }
-        });
-        if (error) throw error;
-        toast.success("Registration successful! You can now log in.");
+        await submitAccessRequestFallback();
+        toast.success('Access request submitted. Admin will review your request.');
         setIsLogin(true);
+        setPassword('');
+        setRequestMessage('');
+        return;
       }
     } catch (error: any) {
+      const authEngineFailed = error?.code === 'unexpected_failure' || /Database error querying schema/i.test(String(error?.message ?? ''));
+
+      if (isLogin) {
+        const signedIn = await tryLocalSigninFallback();
+        if (signedIn) {
+          return;
+        }
+
+        if (!authEngineFailed) {
+          toast.error(error.message || 'Authentication failed');
+          return;
+        }
+
+        toast.error('Authentication service is unavailable. Please verify credentials or try again later.');
+        return;
+      }
+
       toast.error(error.message || "Authentication failed");
     } finally {
       setIsLoading(false);
@@ -110,21 +262,35 @@ export default function Auth() {
               </div>
             </div>
 
-            <div className="space-y-2">
-              <label className="text-xs font-medium text-text-secondary">Access Key</label>
-              <div className="relative">
-                <Key className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
-                <input 
-                  type="password" 
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-bg-base border border-border-subtle focus:border-border-strong rounded-lg text-text-primary pl-10 pr-4 py-2.5 outline-none text-sm transition-colors"
-                  placeholder="••••••••••••"
+            {isLogin ? (
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-text-secondary">Access Key</label>
+                <div className="relative">
+                  <Key className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
+                  <input 
+                    type="password" 
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full bg-bg-base border border-border-subtle focus:border-border-strong rounded-lg text-text-primary pl-10 pr-4 py-2.5 outline-none text-sm transition-colors"
+                    placeholder="••••••••••••"
+                    disabled={isLoading}
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-text-secondary">Request Notes (Optional)</label>
+                <textarea
+                  value={requestMessage}
+                  onChange={(e) => setRequestMessage(e.target.value)}
+                  rows={3}
+                  className="w-full bg-bg-base border border-border-subtle focus:border-border-strong rounded-lg text-text-primary px-4 py-2.5 outline-none text-sm transition-colors resize-none"
+                  placeholder="Briefly explain your access need..."
                   disabled={isLoading}
                 />
               </div>
-            </div>
+            )}
 
             <button 
               type="submit"

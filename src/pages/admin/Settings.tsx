@@ -21,20 +21,20 @@ export default function Settings() {
     const fetchSettings = async () => {
       try {
         const data = await dbApi.getSettings();
-        // Map array of {setting_key, setting_value} to an object
-        const settingsObj: any = {};
-        data.forEach((s: any) => {
-          settingsObj[s.setting_key] = s.setting_value;
-        });
+        const settingsObj = (data ?? {}) as Record<string, any>;
+        const toNumberOrDefault = (value: unknown, fallback: number) => {
+          const parsed = Number(value);
+          return Number.isFinite(parsed) ? parsed : fallback;
+        };
         
         // Merge with defaults just in case some keys are missing
         setSettings(prev => ({
           ...prev,
-          engineMode: settingsObj['engineMode'] || prev.engineMode,
-          sensitivity: parseInt(settingsObj['sensitivity']) || prev.sensitivity,
-          autoMitigation: settingsObj['autoMitigation'] === 'true' || settingsObj['autoMitigation'] === true,
-          maxCpu: parseInt(settingsObj['maxCpu']) || prev.maxCpu,
-          maxRam: parseInt(settingsObj['maxRam']) || prev.maxRam,
+          engineMode: typeof settingsObj.engineMode === 'string' ? settingsObj.engineMode : prev.engineMode,
+          sensitivity: toNumberOrDefault(settingsObj.sensitivity, prev.sensitivity),
+          autoMitigation: settingsObj.autoMitigation === 'true' || settingsObj.autoMitigation === true,
+          maxCpu: toNumberOrDefault(settingsObj.maxCpu, prev.maxCpu),
+          maxRam: toNumberOrDefault(settingsObj.maxRam, prev.maxRam),
         }));
       } catch (error) {
         toast.error('Failed to load settings');
@@ -52,7 +52,7 @@ export default function Settings() {
         const mlLatency = Math.round(performance.now() - startMl);
 
         const startDb = performance.now();
-        const { error } = await supabase.from('ddos_system_settings').select('id').limit(1);
+  const { error } = await supabase.from('ddos_system_settings').select('key').limit(1);
         const dbLatency = Math.round(performance.now() - startDb);
 
         setHealth({

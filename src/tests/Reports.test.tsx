@@ -15,10 +15,14 @@ describe('Reports Component', () => {
     vi.resetAllMocks();
   });
 
-  it('displays loading state initially', () => {
+  it('displays loading state initially', async () => {
     (dbApi.getReports as any).mockResolvedValueOnce([]);
     render(<Reports />);
     expect(screen.getByText('Security Reports')).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(dbApi.getReports).toHaveBeenCalledTimes(1);
+    });
   });
 
   it('renders reports data successfully', async () => {

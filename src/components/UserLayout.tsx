@@ -9,6 +9,7 @@ export default function UserLayout() {
 
   const handleSignOut = async () => {
     await signOut();
+    navigate('/auth', { replace: true });
   };
 
   const navItems = [

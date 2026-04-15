@@ -9,6 +9,11 @@ export default function AdminLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, profile, signOut } = useAuth();
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate('/auth', { replace: true });
+  };
   
   useEffect(() => {
     const socketOrigin = import.meta.env.VITE_SOCKET_URL || window.location.origin;
@@ -109,9 +114,7 @@ export default function AdminLayout() {
             </div>
           </div>
           <button
-            onClick={async () => {
-              await signOut();
-            }}
+            onClick={handleSignOut}
             className="w-full flex items-center justify-center gap-3 px-3 py-2 rounded-lg text-sm text-text-secondary hover:text-danger hover:bg-danger-dim transition-colors"
           >
             <LogOut className="w-4 h-4" />

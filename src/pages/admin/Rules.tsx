@@ -26,8 +26,9 @@ export default function Rules() {
 
   const toggleRule = async (id: string, currentStatus: string) => {
     const originalRules = [...rules];
+    const isCurrentlyActive = String(currentStatus).toUpperCase() === 'ACTIVE';
     // Optimistic Update
-    setRules(rules.map(r => r.id === id ? { ...r, status: currentStatus === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE' } : r));
+    setRules(rules.map(r => r.id === id ? { ...r, status: isCurrentlyActive ? 'INACTIVE' : 'ACTIVE' } : r));
     
     try {
       await dbApi.toggleRule(id, currentStatus);
@@ -40,9 +41,9 @@ export default function Rules() {
   };
 
   const filteredRules = rules.filter(rule => 
-    rule.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    rule.condition_value.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    rule.action.toLowerCase().includes(searchQuery.toLowerCase())
+    String(rule.name ?? '').toLowerCase().includes(searchQuery.toLowerCase()) || 
+    String(rule.condition_value ?? rule.condition ?? '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+    String(rule.action ?? '').toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
@@ -74,10 +75,19 @@ export default function Rules() {
           <div className="flex items-center justify-center p-12 text-brand">
             <Loader className="w-8 h-8 animate-spin" />
           </div>
-        ) : filteredRules.map((rule) => (
-          <div key={rule.id} className={`bento-card p-5 flex items-center justify-between transition-all ${rule.status === 'ACTIVE' ? 'border-border-strong' : 'opacity-60'}`}>
+        ) : filteredRules.map((rule) => {
+          const isActive = String(rule.status).toUpperCase() === 'ACTIVE';
+          const conditionText = rule.condition
+            ? String(rule.condition)
+            : `${String(rule.condition_type ?? '').trim()} ${String(rule.condition_value ?? '').trim()}`.trim();
+          const actionText = rule.action_value
+            ? `${String(rule.action ?? '')} (${String(rule.action_value)})`
+            : String(rule.action ?? '');
+
+          return (
+          <div key={rule.id} className={`bento-card p-5 flex items-center justify-between transition-all ${isActive ? 'border-border-strong' : 'opacity-60'}`}>
             <div className="flex items-center gap-4">
-              <div className={`w-10 h-10 rounded-full flex items-center justify-center ${rule.status === 'ACTIVE' ? 'bg-brand-dim text-brand' : 'bg-bg-base text-text-muted'}`}>
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isActive ? 'bg-brand-dim text-brand' : 'bg-bg-base text-text-muted'}`}>
                 <Shield className="w-5 h-5" />
               </div>
               <div>
@@ -86,9 +96,9 @@ export default function Rules() {
                     <span className="text-xs bg-bg-panel px-2 py-0.5 rounded-full border border-border-subtle font-mono text-text-muted">{rule.tier}</span>
                 </h3>
                 <div className="flex items-center gap-3 mt-1 text-xs font-mono text-text-secondary">
-                  <span>IF <span className="text-text-primary">{rule.condition_type} {rule.condition_value}</span></span>
+                  <span>IF <span className="text-text-primary">{conditionText || '-'}</span></span>
                   <span>→</span>
-                  <span>THEN <span className="text-text-primary">{rule.action} {rule.action_value ? `(${rule.action_value})` : ''}</span></span>
+                  <span>THEN <span className="text-text-primary">{actionText || '-'}</span></span>
                 </div>
               </div>
             </div>
@@ -96,16 +106,16 @@ export default function Rules() {
             <div className="flex items-center gap-4">
               <button 
                 onClick={() => toggleRule(rule.id, rule.status)}
-                className={`w-12 h-6 rounded-full relative transition-colors ${rule.status === 'ACTIVE' ? 'bg-brand' : 'bg-border-strong'}`}
+                className={`w-12 h-6 rounded-full relative transition-colors ${isActive ? 'bg-brand' : 'bg-border-strong'}`}
               >
-                <div className={`absolute top-1 w-4 h-4 rounded-full bg-bg-base transition-transform ${rule.status === 'ACTIVE' ? 'left-7' : 'left-1'}`}></div>
+                <div className={`absolute top-1 w-4 h-4 rounded-full bg-bg-base transition-transform ${isActive ? 'left-7' : 'left-1'}`}></div>
               </button>
               <button className="p-2 text-text-muted hover:text-danger transition-colors">
                 <Trash2 className="w-4 h-4" />
               </button>
             </div>
           </div>
-        ))}
+        )})}
         {!isLoading && filteredRules.length === 0 && (
           <div className="bento-card p-8 text-center text-text-muted">
             No rules found matching your search.
