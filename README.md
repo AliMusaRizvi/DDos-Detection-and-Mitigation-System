@@ -1,4 +1,4 @@
-# Sentinel: Real-Time DDoS Detection & Mitigation System
+# Sentinel: Real-Time DDoS Detection & Mitigation System (https://d-dos-detectiont.vercel.app) weblink
 
 Sentinel is an advanced, production-ready Distributed Denial-of-Service (DDoS) detection and mitigation platform. Built for university research (Final Year Project), it combines the power of **Machine Learning (Hugging Face)**, **Real-Time Data Streaming (Socket.io/Supabase)**, and a stunning **React-based Admin Dashboard** to visualize and stop malicious traffic dead in its tracks.
 
